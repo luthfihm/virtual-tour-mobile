@@ -12,10 +12,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
-    <uses-feature
-        android:name="android.hardware.sensor.gyroscope"
-        android:required="true" />
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false" />
@@ -45,11 +43,7 @@
         <activity
             android:name=".activity.ARViewActivity"
             android:screenOrientation="landscape" />
-        <activity android:name=".activity.TrainModelActivity" />
-        <activity
-            android:name=".activity.ObjectDetailsActivity"
-            android:label="@string/title_activity_object_details"
-            android:theme="@style/AppTheme.NoActionBar"></activity>
+        <activity android:name=".activity.TrainModelActivity"></activity>
     </application>
 
 </manifest>

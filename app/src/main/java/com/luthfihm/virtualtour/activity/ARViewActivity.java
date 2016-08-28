@@ -29,6 +29,9 @@ import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfByte;
+import org.opencv.core.MatOfFloat;
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
@@ -44,8 +47,9 @@ import java.util.List;
 
 public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvCameraViewListener2, Runnable {
 
-    private Mat mRgba;
-    private Mat mGray;
+    private Mat mRgba = null;
+    private Mat mGray = null;
+    private Mat prevGray = null;
 
     private boolean isRecognizing = true;
 
@@ -66,8 +70,8 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
     protected Runnable runable;
     private boolean cameraReady = false;
 
-    private Point objectPoint = null;
-    private Point objectPointPrev = null;
+    private MatOfPoint2f objectPoints = null;
+    private MatOfPoint2f objectPointsPrev = null;
 
     private ImageView objectIcon;
     private TextView objectTitle;
@@ -87,7 +91,6 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
                     trainModelBuilder = new TrainModelBuilder(getExternalFilesDir(null));
                     objectDetector = new ObjectDetector(trainModelBuilder.getTrainModels());
 
-                    Log.d("train.model", objectDetector.getTrainModels().get(0).getObjectId());
                 }
                 break;
                 default: {
@@ -112,7 +115,7 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
             @Override
             public void run()
             {
-                handler.postDelayed(this, 100);
+//                handler.postDelayed(this, 100);
 
 //                System.arraycopy(vOrientation, 0, vOrientationPrev, 0, vOrientation.length);
 //
@@ -121,18 +124,18 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
 //                dataReady = true;
 
                 if (cameraReady) {
-                    int matchIndex = objectDetector.recognize(mGray);
-                    Log.d("matchIndex", matchIndex+"");
-                    if (matchIndex != -1) {
-                        objectId = objectDetector.getTrainModels().get(matchIndex).getObjectId();
-                        objectName = sharedPreferences.getString(objectId,"object");
-                        objectTitle.setText(objectName);
-                        objectIcon.setVisibility(View.VISIBLE);
-                        objectTitle.setVisibility(View.VISIBLE);
-                    } else {
-                        objectIcon.setVisibility(View.INVISIBLE);
-                        objectTitle.setVisibility(View.INVISIBLE);
-                    }
+//                    int matchIndex = objectDetector.recognize(mGray);
+//                    Log.d("matchIndex", matchIndex+"");
+//                    if (matchIndex != -1) {
+//                        objectId = objectDetector.getTrainModels().get(matchIndex).getObjectId();
+//                        objectName = sharedPreferences.getString(objectId,"object");
+//                        objectTitle.setText(objectName);
+//                        objectIcon.setVisibility(View.VISIBLE);
+//                        objectTitle.setVisibility(View.VISIBLE);
+//                    } else {
+//                        objectIcon.setVisibility(View.INVISIBLE);
+//                        objectTitle.setVisibility(View.INVISIBLE);
+//                    }
                 }
             }
         };
@@ -213,6 +216,32 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
         mGray = inputFrame.gray();
 
         cameraReady = true;
+
+        if (isRecognizing) {
+            int matchIndex = objectDetector.recognize(mGray);
+            Log.d("matchIndex", matchIndex+"");
+            if (matchIndex != -1) {
+                vOrientationPrev[0] = orientation.getOrientation()[0];
+                vOrientationPrev[1] = orientation.getOrientation()[1];
+                vOrientationPrev[2] = orientation.getOrientation()[2];
+                isRecognizing = false;
+            }
+        } else {
+            vOrientation = orientation.getOrientation();
+
+            double xAxis = Math.toDegrees(vOrientation[0]-vOrientationPrev[0]);
+            double yAxis = Math.toDegrees(vOrientation[1]-vOrientationPrev[1]);
+            double zAxis = Math.toDegrees(vOrientation[2]-vOrientationPrev[2]);
+
+            double centerX = mRgba.cols()/2- xAxis*20;
+            double centerY = mRgba.rows()/2- (zAxis)*20;
+
+            if ((centerX > 0) && (centerY > 0)) {
+                Imgproc.rectangle(mRgba,new Point(centerX-50,centerY-50), new Point(centerX+50,centerY+50), new Scalar(0,0,255));
+            } else {
+                isRecognizing = true;
+            }
+        }
 
         return mRgba;
     }
