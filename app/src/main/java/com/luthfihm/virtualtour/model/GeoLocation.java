@@ -10,17 +10,17 @@ public class GeoLocation {
 
     @SerializedName("lat")
     @Expose
-    private Integer lat;
+    private Double lat;
     @SerializedName("lng")
     @Expose
-    private Integer lng;
+    private Double lng;
 
     /**
      *
      * @return
      * The lat
      */
-    public Integer getLat() {
+    public Double getLat() {
         return lat;
     }
 
@@ -29,7 +29,7 @@ public class GeoLocation {
      * @param lat
      * The lat
      */
-    public void setLat(Integer lat) {
+    public void setLat(Double lat) {
         this.lat = lat;
     }
 
@@ -38,7 +38,7 @@ public class GeoLocation {
      * @return
      * The lng
      */
-    public Integer getLng() {
+    public Double getLng() {
         return lng;
     }
 
@@ -47,7 +47,7 @@ public class GeoLocation {
      * @param lng
      * The lng
      */
-    public void setLng(Integer lng) {
+    public void setLng(Double lng) {
         this.lng = lng;
     }
 

@@ -19,4 +19,7 @@ public interface ObjectModelAPI {
 
     @GET("objects/{id}")
     Call<ObjectModel> getObject(@Path("id") String objectId);
+
+    @GET("objects?filter[where][geoLocation][near]={location}&filter[where][geoLocation][maxDistance]={distance}&filter[where][geoLocation][unit]=meters")
+    Call<List<ObjectModel>> getAllObjectsNear(@Path("location") String location, @Path("distance") int distance);
 }

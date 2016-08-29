@@ -2,24 +2,30 @@ package com.luthfihm.virtualtour.activity;
 
 import android.Manifest;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Criteria;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import android.support.v4.app.ActivityCompat;
-import android.support.v7.app.AppCompatActivity;
+import android.support.v4.app.FragmentActivity;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
+import android.util.Log;
 import android.widget.Toast;
 
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.luthfihm.virtualtour.R;
 import com.luthfihm.virtualtour.apiclient.ObjectModelAPI;
+import com.luthfihm.virtualtour.ar.GpsTracker;
 import com.luthfihm.virtualtour.model.ObjectModel;
 
 import org.apache.commons.io.FilenameUtils;
@@ -32,15 +38,11 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
-public class MainActivity extends AppCompatActivity implements LocationListener, Callback<List<ObjectModel>> {
+public class MapsActivity extends FragmentActivity implements OnMapReadyCallback, LocationListener, Callback<List<ObjectModel>> {
 
-    private Button ARViewButton;
-    private Button trainModelButton;
-    private Button mapViewButton;
-
+    private GoogleMap mMap = null;
     private LocationManager locationManager;
-    private String currentLocation;
-    private int distance = 200;
+    private LatLng currentLocation;
     private String provider;
 
     private Gson gson;
@@ -50,48 +52,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-
-        gson = new GsonBuilder()
-                .setDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")
-                .create();
-
-        retrofit = new Retrofit.Builder()
-                .baseUrl(ObjectModelAPI.ENDPOINT)
-                .addConverterFactory(GsonConverterFactory.create(gson))
-                .build();
-
-        objectModelAPI = retrofit.create(ObjectModelAPI.class);
-
-        ARViewButton = (Button) findViewById(R.id.ARViewButton);
-        trainModelButton = (Button) findViewById(R.id.trainModelButton);
-        mapViewButton = (Button) findViewById(R.id.mapViewButton);
-
-        ARViewButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, ARViewActivity.class);
-                startActivity(intent);
-//                Call<List<ObjectModel>> call = objectModelAPI.getAllObjectsNear(currentLocation, distance);
-//                call.enqueue(MainActivity.this);
-            }
-        });
-
-        trainModelButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, TrainModelActivity.class);
-                startActivity(intent);
-            }
-        });
-
-        mapViewButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, MapsActivity.class);
-                startActivity(intent);
-            }
-        });
+        setContentView(R.layout.activity_maps);
+        // Obtain the SupportMapFragment and get notified when the map is ready to be used.
+        SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.map);
+        mapFragment.getMapAsync(this);
 
         // Get the location manager
         locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
@@ -110,6 +75,45 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
             onLocationChanged(location);
         }
 
+        gson = new GsonBuilder()
+                .setDateFormat("yyyy-MM-dd'T'HH:mm:ssZ")
+                .create();
+
+        retrofit = new Retrofit.Builder()
+                .baseUrl(ObjectModelAPI.ENDPOINT)
+                .addConverterFactory(GsonConverterFactory.create(gson))
+                .build();
+
+        objectModelAPI = retrofit.create(ObjectModelAPI.class);
+    }
+
+
+    /**
+     * Manipulates the map once available.
+     * This callback is triggered when the map is ready to be used.
+     * This is where we can add markers or lines, add listeners or move the camera. In this case,
+     * we just add a marker near Sydney, Australia.
+     * If Google Play services is not installed on the device, the user will be prompted to install
+     * it inside the SupportMapFragment. This method will only be triggered once the user has
+     * installed Google Play services and returned to the app.
+     */
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        mMap = googleMap;
+
+//        GpsTracker gpsTracker = new GpsTracker(this);
+//        if (gpsTracker.canGetLocation()) {
+//            LatLng sydney = new LatLng(gpsTracker.getLatitude(), gpsTracker.getLongitude());
+//            mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
+//            mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+//        }
+        CameraPosition currentPlace = new CameraPosition.Builder()
+                .target(currentLocation)
+                .zoom(17).build();
+        mMap.moveCamera(CameraUpdateFactory.newCameraPosition(currentPlace));
+
+        Call<List<ObjectModel>> call = objectModelAPI.getAllObjects();
+        call.enqueue(MapsActivity.this);
     }
 
     /* Request updates at startup */
@@ -148,7 +152,14 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     @Override
     public void onLocationChanged(Location location) {
-        currentLocation = location.getLatitude() + "," + location.getLongitude();
+        Log.d("geo", location.getLatitude() + "," + location.getLongitude() + " accuracy " + location.getAccuracy());
+        currentLocation = new LatLng(location.getLatitude(), location.getLongitude());
+        if (mMap != null) {
+            CameraPosition currentPlace = new CameraPosition.Builder()
+                    .target(currentLocation)
+                    .zoom(17).build();
+            mMap.moveCamera(CameraUpdateFactory.newCameraPosition(currentPlace));
+        }
     }
 
     @Override
@@ -174,7 +185,11 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
         int code = response.code();
         if (code == 200) {
             List<ObjectModel> objectModels = response.body();
-            Toast.makeText(this, String.valueOf(objectModels.size()), Toast.LENGTH_LONG).show();
+            for (ObjectModel objectModel : objectModels) {
+                LatLng latLng = new LatLng(objectModel.getGeoLocation().getLat(), objectModel.getGeoLocation().getLng());
+                Marker marker = mMap.addMarker(new MarkerOptions().position(latLng).title(objectModel.getTitle()));
+                marker.showInfoWindow();
+            }
         } else {
             Toast.makeText(this, "Did not work: " + String.valueOf(code), Toast.LENGTH_LONG).show();
         }
@@ -182,6 +197,6 @@ public class MainActivity extends AppCompatActivity implements LocationListener,
 
     @Override
     public void onFailure(Call<List<ObjectModel>> call, Throwable t) {
-        Toast.makeText(this, "Cannot load object model", Toast.LENGTH_LONG).show();
+
     }
 }

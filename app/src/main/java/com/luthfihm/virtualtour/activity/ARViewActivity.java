@@ -5,6 +5,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.media.Image;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
@@ -13,9 +15,16 @@ import android.util.Log;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
+import android.widget.VideoView;
 
+import com.google.android.youtube.player.YouTubeBaseActivity;
+import com.google.android.youtube.player.YouTubeInitializationResult;
+import com.google.android.youtube.player.YouTubePlayer;
+import com.google.android.youtube.player.YouTubePlayerView;
 import com.luthfihm.virtualtour.R;
 import com.luthfihm.virtualtour.ar.GyroscopeOrientation;
 import com.luthfihm.virtualtour.ar.ObjectDetector;
@@ -27,10 +36,16 @@ import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.CameraBridgeViewBase;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfByte;
+import org.opencv.core.MatOfFloat;
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.video.Video;
 
@@ -44,8 +59,11 @@ import java.util.List;
 
 public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvCameraViewListener2, Runnable {
 
-    private Mat mRgba;
-    private Mat mGray;
+    private Mat mRgba = null;
+    private Mat mGray = null;
+    private Mat prevGray = null;
+
+    private Mat icon = null;
 
     private boolean isRecognizing = true;
 
@@ -66,15 +84,18 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
     protected Runnable runable;
     private boolean cameraReady = false;
 
-    private Point objectPoint = null;
-    private Point objectPointPrev = null;
+    private MatOfPoint2f objectPoints = null;
+    private MatOfPoint2f objectPointsPrev = null;
 
-    private ImageView objectIcon;
-    private TextView objectTitle;
+    private Button viewDetailsButton;
+    private Button viewVideoButton;
     private String objectId = null;
     private String objectName;
 
+    private VideoView videoView;
+
     private SharedPreferences sharedPreferences;
+
 
     private BaseLoaderCallback mLoaderCallback = new BaseLoaderCallback(this) {
         @Override
@@ -87,7 +108,12 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
                     trainModelBuilder = new TrainModelBuilder(getExternalFilesDir(null));
                     objectDetector = new ObjectDetector(trainModelBuilder.getTrainModels());
 
-                    Log.d("train.model", objectDetector.getTrainModels().get(0).getObjectId());
+                    Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.info);
+                    Mat origIcon = new Mat();
+                    icon = new Mat();
+                    Utils.bitmapToMat(bitmap, origIcon);
+                    Imgproc.resize(origIcon, icon, new Size(150, 150));
+
                 }
                 break;
                 default: {
@@ -112,27 +138,14 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
             @Override
             public void run()
             {
-                handler.postDelayed(this, 100);
-
-//                System.arraycopy(vOrientation, 0, vOrientationPrev, 0, vOrientation.length);
-//
-//                vOrientation = orientation.getOrientation();
-//
-//                dataReady = true;
-
-                if (cameraReady) {
-                    int matchIndex = objectDetector.recognize(mGray);
-                    Log.d("matchIndex", matchIndex+"");
-                    if (matchIndex != -1) {
-                        objectId = objectDetector.getTrainModels().get(matchIndex).getObjectId();
-                        objectName = sharedPreferences.getString(objectId,"object");
-                        objectTitle.setText(objectName);
-                        objectIcon.setVisibility(View.VISIBLE);
-                        objectTitle.setVisibility(View.VISIBLE);
-                    } else {
-                        objectIcon.setVisibility(View.INVISIBLE);
-                        objectTitle.setVisibility(View.INVISIBLE);
-                    }
+                handler.postDelayed(this, 1000);
+                if (!isRecognizing) {
+                    viewDetailsButton.setVisibility(View.VISIBLE);
+                    viewVideoButton.setVisibility(View.VISIBLE);
+                    Log.d("Haha", isRecognizing+"");
+                } else {
+                    viewDetailsButton.setVisibility(View.GONE);
+                    viewVideoButton.setVisibility(View.GONE);
                 }
             }
         };
@@ -158,13 +171,15 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
 
         gyroscopeAvailable = gyroscopeAvailable();
 
-        objectIcon = (ImageView) findViewById(R.id.objectIcon);
-        objectTitle = (TextView) findViewById(R.id.objectTitle);
+        viewDetailsButton = (Button) findViewById(R.id.viewDetailsButton);
+        viewVideoButton = (Button) findViewById(R.id.viewVideoButton);
+        videoView = (VideoView) findViewById(R.id.videoView);
 
-        objectIcon.setVisibility(View.INVISIBLE);
-        objectTitle.setVisibility(View.INVISIBLE);
+        viewDetailsButton.setVisibility(View.VISIBLE);
+        viewVideoButton.setVisibility(View.VISIBLE);
+        videoView.setVisibility(View.GONE);
 
-        objectIcon.setOnClickListener(new View.OnClickListener() {
+        viewDetailsButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 if (objectId != null) {
@@ -175,6 +190,7 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
                 }
             }
         });
+
     }
 
     @Override
@@ -214,6 +230,37 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
 
         cameraReady = true;
 
+        if (isRecognizing) {
+            int matchIndex = objectDetector.recognize(mGray);
+            Log.d("matchIndex", matchIndex+"");
+            if (matchIndex != -1) {
+                vOrientationPrev[0] = orientation.getOrientation()[0];
+                vOrientationPrev[1] = orientation.getOrientation()[1];
+                vOrientationPrev[2] = orientation.getOrientation()[2];
+                isRecognizing = false;
+                objectId = objectDetector.getTrainModels().get(matchIndex).getObjectId();
+                objectName = sharedPreferences.getString(objectId,"object");
+            }
+        } else {
+            vOrientation = orientation.getOrientation();
+
+            double xAxis = Math.toDegrees(vOrientation[0]-vOrientationPrev[0]);
+            double yAxis = Math.toDegrees(vOrientation[1]-vOrientationPrev[1]);
+            double zAxis = Math.toDegrees(vOrientation[2]-vOrientationPrev[2]);
+
+            double centerX = mRgba.cols()/2- xAxis*20;
+            double centerY = mRgba.rows()/2- (zAxis)*20;
+
+            if ((centerX > 75) && (centerY > 75) && (centerX < mRgba.cols()-75) && (centerY < mRgba.rows()-75)) {
+//                Imgproc.rectangle(mRgba,new Point(centerX-50,centerY-50), new Point(centerX+50,centerY+50), new Scalar(0,0,255));
+                Mat submat = mRgba.submat((int)centerY-75,(int)centerY+75, (int)centerX-75,(int)centerX+75);
+                icon.copyTo(submat);
+                Imgproc.putText(mRgba, objectName, new Point(centerX-75,centerY+130), 3, 1, new Scalar(0,0,255), 2);
+            } else {
+                isRecognizing = true;
+            }
+        }
+
         return mRgba;
     }
 
@@ -221,4 +268,5 @@ public class ARViewActivity extends Activity implements CameraBridgeViewBase.CvC
     public void run() {
         Thread.currentThread().interrupt();
     }
+
 }

@@ -12,27 +12,32 @@
         android:id="@+id/cameraView"
         opencv:camera_id="any" />
 
-
     <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:id="@+id/objectLayout"
-        android:orientation="vertical"
-        android:layout_gravity="center">
-
-        <ImageView
-            android:layout_width="match_parent"
-            android:layout_height="30pt"
-            android:id="@+id/objectIcon"
-            android:src="@drawable/info"></ImageView>
-        <TextView
+        android:layout_gravity="right|bottom">
+        <Button
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:id="@+id/objectTitle"
-            android:textAlignment="center"
-            android:textSize="15pt"
-            android:textStyle="bold"
-            android:textColor="@android:color/holo_blue_bright"
-            android:text="Object"></TextView>
+            android:id="@+id/viewDetailsButton"
+            style="@style/Widget.AppCompat.Button.Colored"
+            android:text="Details"/>
+        <Button
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:id="@+id/viewVideoButton"
+            style="@style/Widget.AppCompat.Button.Colored"
+            android:text="Video"/>
+    </LinearLayout>
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_margin="45sp">
+        <VideoView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/videoView">
+
+        </VideoView>
     </LinearLayout>
 </FrameLayout>
